@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fly Shooter Game</title>
+<style>
+    body {
+        margin: 0;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background-color: #333;
+    }
+    #gameCanvas {
+        background-color: black;
+        display: block;
+    }
+    .fly {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        background-color: red;
+    }
+    .laser {
+        position: absolute;
+        width: 3px;
+        height: 10px;
+        background-color: yellow;
+    }
+    #score {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        color: white;
+        font-size: 24px;
+    }
+    #timer {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        color: white;
+        font-size: 24px;
+    }
+    #hits {
+        position: absolute;
+        top: 50px;
+        left: 10px;
+        color: red;
+        font-size: 24px;
+    }
+    #pause {
+        position: absolute;
+        top: 50px;
+        right: 10px;
+        color: white;
+        font-size: 18px;
+        padding: 5px 10px;
+        background-color: #555;
+        border: none;
+        cursor: pointer;
+    }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas" width="1000" height="600"></canvas>
+<div id="score">0</div>
+<div id="timer">0</div>
+<div id="hits">Hits: 0</div>
+<button id="pause">Pause</button>
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    let shipX = canvas.width / 2;
+    let shipY = canvas.height - 30;
+    const shipWidth = 50;
+    const shipHeight = 10;
+
+    let flies = [];
+    const flyWidth = 20;
+    const flyHeight = 20;
+
+    let lasers = [];
+    const laserWidth = 3;
+    const laserHeight = 10;
+
+    let score = 0;
+    let timeElapsed = 0;
+    let hits = 0;
+    let timerInterval;
+    let gamePaused = false;
+
+    document.addEventListener("keydown", moveShip);
+    canvas.addEventListener("touchstart", handleTouch);
+    document.getElementById("pause").addEventListener("click", togglePause);
+
+    function moveShip(event) {
+        const moveAmount = 10;
+        if (!gamePaused) {
+            if (event.key === "ArrowLeft" && shipX > 0) {
+                shipX -= moveAmount;
+            } else if (event.key === "ArrowRight" && shipX < canvas.width - shipWidth) {
+                shipX += moveAmount;
+            } else if (event.key === " ") {
+                shootLaser();
+            }
+        }
+    }
+
+    function handleTouch(event) {
+        const touchX = event.touches[0].clientX;
+        if (!gamePaused) {
+            if (touchX < canvas.width / 2) {
+                if (shipX > 0) {
+                    shipX -= 10; // Move left
+                }
+            } else {
+                if (shipX < canvas.width - shipWidth) {
+                    shipX += 10; // Move right
+                }
+            }
+        }
+    }
+
+    function shootLaser() {
+        const laserX = shipX + (shipWidth / 2) - (laserWidth / 2);
+        const laserY = shipY;
+        lasers.push({ x: laserX, y: laserY });
+    }
+
+    function createFly() {
+        const flyX = Math.random() * (canvas.width - flyWidth);
+        const flyY = 0;
+        flies.push({ x: flyX, y: flyY });
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw ship
+        ctx.fillStyle = "white";
+        ctx.fillRect(shipX, shipY, shipWidth, shipHeight);
+
+        // Draw flies
+        flies.forEach((fly, index) => {
+            ctx.fillStyle = "red";
+            ctx.fillRect(fly.x, fly.y, flyWidth, flyHeight);
+            fly.y += 1; // Adjust fly speed
+            // Remove fly if it goes out of canvas
+            if (fly.y > canvas.height) {
+                flies.splice(index, 1);
+            }
+        });
+
+        // Draw lasers
+        lasers.forEach((laser, index) => {
+            ctx.fillStyle = "yellow";
+            ctx.fillRect(laser.x, laser.y, laserWidth, laserHeight);
+            laser.y -= 5; // Adjust laser speed
+            // Remove laser if it goes out of canvas
+            if (laser.y < 0) {
+                lasers.splice(index, 1);
+            }
+            // Check laser-fly collision
+            flies.forEach((fly, flyIndex) => {
+                if (laser.x < fly.x + flyWidth &&
+                    laser.x + laserWidth > fly.x &&
+                    laser.y < fly.y + flyHeight &&
+                    laser.y + laserHeight > fly.y) {
+                    // Remove fly and laser if they collide
+                    flies.splice(flyIndex, 1);
+                    lasers.splice(index, 1);
+                    updateScore();
+                    updateHits();
+                }
+            });
+        });
+
+        // Create new fly randomly
+        if (Math.random() < 0.005) {
+            createFly();
+        }
+
+        if (!gamePaused) {
+            requestAnimationFrame(draw);
+        }
+    }
+
+    function updateScore() {
+        score++;
+        document.getElementById("score").textContent = score;
+    }
+
+    function updateHits() {
+        hits++;
+        document.getElementById("hits").textContent = "Hits: " + hits;
+    }
+
+    function updateTimer() {
+        timeElapsed++;
+        document.getElementById("timer").textContent = timeElapsed;
+    }
+
+    function togglePause() {
+        gamePaused = !gamePaused;
+        if (gamePaused) {
+            clearInterval(timerInterval);
+            document.getElementById("pause").textContent = "Resume";
+        } else {
+            timerInterval = setInterval(updateTimer, 1000);
+            document.getElementById("pause").textContent = "Pause";
+            draw();
+        }
+    }
+
+    function startGame() {
+        timerInterval = setInterval(updateTimer, 1000);
+        draw();
+    }
+
+    function endGame() {
+        clearInterval(timerInterval);
+        alert("Game Over! Your score: " + score);
+    }
+
+    startGame();
+</script>
+</body>
+</html>
